@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Elephant!!!</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.7.14/vue.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css" />
+</head>
+<body>
+
+    <div class="container">
+        <div class="row">
+            <div class="col">
+
+                <div id="app">
+                    <h1>{{ heading }}</h1>
+                    <div v-if="!lockedIn">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Your Name</label>
+                            <input type="text" class="form-control" id="name" v-model="name" autofocus >
+                        </div>
+                        <div class="mb-3">
+                            <label for="gift" class="form-label">Your Gift</label>
+                            <input type="text" class="form-control" id="gift" @keyup.enter="setNameAndGift" v-model="gift" />
+                        </div>
+                        <button class="btn btn-success" @click="setNameAndGift">Lock it in</button>
+                    </div>
+
+                    <div v-else>
+                        <div class="row">
+                            <div class="col-8">
+                                <h3>People:</h3>
+                                <ul class="list-group">
+                                    <li v-for="(p, i) in people" v-if="p.name" class="list-group-item">
+                                        Name: {{ p.name }}<br />
+                                        <span v-if="p.chosenGift">
+                                            Chosen Gift:
+                                            <div
+                                                :src="p.chosenGift"
+                                                style="width: 250px; height: 180px; background-position: center; background-size: cover;"
+                                                :style="{'background-image': 'url('+p.chosenGift+')'}"
+                                                >&nbsp;</div>
+
+                                            <button
+                                                @click="steal(p.chosenGift)"
+                                                class="btn btn-danger btn-sm"
+                                                >Steal</button>
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="col-4">
+                                <h3>Availble Gifts:</h3>
+                                <img style="width: 100%" src="https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fwww.clipartbest.com%2Fcliparts%2FbTy%2F6rM%2FbTy6rMK8c.png&f=1&nofb=1&ipt=c3bc0bf8056c9056091bdf69b5336425d09c1449e1c8238e86e8902ffabe2d1f&ipo=images" />
+                                <div class="row">
+                                    <div class="col-3" v-for="(g, i) in unopenedGifts" v-if="g">
+                                        <img
+                                            v-if="g === gift"
+                                            style="width: 80%; opacity: 0.25"
+                                            src="http://getdrawings.com/cliparts/christmas-gift-clipart-15.jpg"
+                                            alt="I'm YOUR present!"
+                                            />
+                                        <img
+                                            v-else
+                                            @click="unwrapGift(g)"
+                                            style="width: 80%"
+                                            src="http://getdrawings.com/cliparts/christmas-gift-clipart-15.jpg"
+                                            alt="I'm a present!"
+                                            />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<script>
+let vm = new Vue({
+    el: "#app",
+    data: {
+        ws: null, // Our websocket
+        error: "",
+        people: [],
+        unopenedGifts: [],
+        name: "",
+        gift: "",
+        lockedIn: false,
+    },
+    methods: {
+        steal(g) {
+            this.ws.send(JSON.stringify({
+                from: this.name,
+                type: "STEAL",
+                message: g,
+            }));
+        },
+        unwrapGift(g) {
+            console.log(g);
+            this.ws.send(JSON.stringify({
+                from: this.name,
+                type: "UNWRAP",
+                message: g,
+            }));
+        },
+        wsInitialize: function() {
+            // reset it to null in case it's something weird
+            this.ws = null;
+            this.error = "";
+
+            var proto = window.parent.location.protocol === "http:" ? "ws": "wss";
+            this.ws = new WebSocket(proto + '://' + window.location.host + '/ws');
+            this.ws.addEventListener('message', (e) => {
+                var msg = JSON.parse(e.data);
+                if (msg.from === 'system') {
+                    if (msg.type === 'people') {
+                        this.people = msg.message;
+                        return;
+                    }
+                    if (msg.type === 'available-gifts') {
+                        this.unopenedGifts = msg.message;
+                        return;
+                    }
+                }
+                console.log(msg);
+            });
+
+            this.ws.onopen = () => {
+                this.ws.send(JSON.stringify({
+                    message: "joined!"
+                }))
+            }
+
+
+            this.ws.onclose = function() {
+                this.error = "No websocket"
+            };
+        },
+        setNameAndGift() {
+            this.ws.send(JSON.stringify({
+                type: "SET-NAME",
+                message: this.name,
+            }))
+            this.ws.send(JSON.stringify({
+                type: "SET-GIFT",
+                message: this.gift,
+            }))
+            this.lockedIn = true;
+        }
+    },
+    created() {
+        this.wsInitialize();
+    },
+    computed: {
+        heading() {
+            if (!this.lockedIn) {
+                return "White Elephant Party Time!"
+            }
+
+            return "Yo "+this.name+", pick a gift if it's your turn!"
+        }
+    }
+});
+</script>
+</body>
+</html>
