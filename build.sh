@@ -1,5 +1,5 @@
 #! /bin/bash
 
 killall white-elephant
-go build -o dist/white-elephant
+CGO_ENABLED=0 go build -o dist/white-elephant
 dist/white-elephant &
